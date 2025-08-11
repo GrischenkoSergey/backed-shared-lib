@@ -1,0 +1,1 @@
+export const CONFIG_NAME_SYMBOL = Symbol.for('CONFIG_NAME');
