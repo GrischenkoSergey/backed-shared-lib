@@ -12,7 +12,7 @@ import { loadTransports } from '../../logger/adapters/winston/transports/transpo
 import MasterLogger from '../../logger/adapters/winston/master.logger';
 import { BackendError } from '../errors';
 
-const APP_DIR_PATH = '../../../../../apps';
+const APP_DIR_PATH = '../../../../../../apps';
 const APP_SHUTDOWN_INTERVAL = 30000;    // 10 seconds
 const PERF_MONITOR_INTERVAL = 1000;     // 5 seconds
 
