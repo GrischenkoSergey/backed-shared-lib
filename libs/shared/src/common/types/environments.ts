@@ -17,10 +17,10 @@ export class EnvironmentVariables {
   @IsEnum(Environment)
   NODE_ENV: Environment;
 
-  @Number()
-  @Min(3000)
-  @Max(65535)
-  PORT: number;
+  // @Number()
+  // @Min(3000)
+  // @Max(65535)
+  // PORT: number;
 
   @String()
   @MinLength(3)

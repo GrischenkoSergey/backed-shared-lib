@@ -7,7 +7,7 @@ import Logger, { LoggerBaseKey, LoggerKey } from './common/interfaces';
 import NestjsLoggerServiceAdapter from './services/nestjs-logger.service';
 import LoggerService from './services/logger.service';
 import { InfrastructureConfig, StorageConfig, SettingsConfig } from '../common/types/configs';
-import { ConfigModule } from '../config/common';
+import { ConfigModule } from '../config';
 import { loadTransports } from './adapters/winston/transports/transports.js';
 
 @Global()

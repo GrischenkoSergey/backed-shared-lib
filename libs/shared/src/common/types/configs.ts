@@ -2,8 +2,7 @@ import * as _ from 'lodash';
 import * as yaml from 'js-yaml';
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
-import { Boolean, Number, String, Record } from '../../config/common/transformation-types';
-import { Type, plainToClass } from '../../config/common/transformer';
+import { Config, Boolean, Number, String, Record, Type, plainToClass } from '../../config';
 import {
   IsOptional,
   IsNotEmpty,
@@ -16,9 +15,8 @@ import {
   ValidationError,
   ValidateNested,
 } from '../../config/common/validator';
-import { Config } from '../../config/common';
 
-const YAML_CONFIG_DIRNAME = '../../../../../apps';
+const YAML_CONFIG_DIRNAME = '../../../../../../apps';
 
 export const API_VERSION = 'v1';
 
@@ -116,6 +114,7 @@ export class OtelCollectorLoggerOptions {
   readonly https: boolean;
 
   @String()
+  @IsOptional()
   @MinLength(3)
   @MaxLength(64)
   readonly hostname: string;
