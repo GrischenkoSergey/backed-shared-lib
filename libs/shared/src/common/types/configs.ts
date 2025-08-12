@@ -15,6 +15,7 @@ import {
   ValidationError,
   ValidateNested,
 } from '../../config/common/validator';
+import { ClassType } from '../types/common-types';
 
 const YAML_CONFIG_DIRNAME = '../../../../../../apps';
 
@@ -582,8 +583,8 @@ export class AppConfig {
 }
 
 // https://www.npmjs.com/package/@nestjs/class-validator
-export function globalConfigValidation(config: Record<string, unknown>) {
-  const validatedConfig = plainToClass(AppConfig, config);
+export function globalConfigValidation<T extends typeof AppConfig>(classType: T, config: Record<string, unknown>): InstanceType<T> {
+  const validatedConfig = plainToClass(classType, config);
   const errors = validateSync(validatedConfig, { skipMissingProperties: false });
 
   if (errors.length > 0) {
@@ -594,7 +595,7 @@ export function globalConfigValidation(config: Record<string, unknown>) {
     );
   }
 
-  return validatedConfig;
+  return validatedConfig as InstanceType<T>;
 }
 
 export function loadConfig() {

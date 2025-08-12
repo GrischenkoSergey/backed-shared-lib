@@ -57,7 +57,7 @@ export default class MasterService {
     constructor() {
         this.STARTUP_TIME = new Date();
         this.uniqueId = uuidv4().split('-')[4] + '-' + process.pid;
-        this.config = globalConfigValidation(loadConfig());
+        this.config = globalConfigValidation(AppConfig, loadConfig());
         this.nodeInstanceCount = availableCPUCount;
 
         if (this.config.settings.worker_count > 0 && this.config.settings.worker_count < this.nodeInstanceCount) {

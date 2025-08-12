@@ -4,7 +4,7 @@ import * as net from 'node:net';
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import NestjsLoggerServiceAdapter from '../../logger/services/nestjs-logger.service';
-import { loadConfig, globalConfigValidation, TracerType, AppConfig, InfrastructureConfig } from '../types/configs';
+import { loadConfig, globalConfigValidation, TracerType, AppConfig, ListenConfig } from '../types/configs';
 import { ClassType } from '../types/common-types';
 import { WeakDI } from './app-ref.service';
 
@@ -20,19 +20,15 @@ process.on('uncaughtException', err => {
     setTimeout(() => process.exit(1), APP_SHUTDOWN_INTERVAL);
 });
 
-export class MainService {
-    protected static instance: MainService;
+export class MainService<T extends typeof AppConfig> {
+    protected static instance: MainService<any>;
     protected application: NestExpressApplication;
-    private readonly config: AppConfig;
+    protected readonly config: InstanceType<T>;
     private logger: NestjsLoggerServiceAdapter;
     private server: net.Server;
 
-    constructor() {
-        this.config = globalConfigValidation(loadConfig());
-    }
-
-    public get Config() {
-        return this.config;
+    constructor(configClass: T) {
+        this.config = globalConfigValidation(configClass, loadConfig());
     }
 
     public async start(appClass: ClassType) {
