@@ -5,7 +5,7 @@ import { NestFactory } from '@nestjs/core';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import NestjsLoggerServiceAdapter from '../../logger/services/nestjs-logger.service';
-import { TracerType, AppConfig, InfrastructureConfig } from '../types/configs';
+import { TracerType, AppConfig, InfrastructureConfig, loadConfig, globalConfigValidation } from '../types/configs';
 import { AppEvents, WorkerStartedEvent } from '../types/events';
 import { ClassType, BootMessage } from '../types/common-types';
 import { WeakDI } from './app-ref.service';
@@ -23,18 +23,22 @@ process.on('uncaughtException', err => {
     setTimeout(() => process.exit(1), APP_SHUTDOWN_INTERVAL);
 });
 
-const enable_perf_monitor = process.env.LISTEN__ENABLE_PERF_MONITOR === 'true';
-const infrastructureConfig: InfrastructureConfig = process.env.INFRASTRUCTURE ? JSON.parse(process.env.INFRASTRUCTURE) : {};
+// const enable_perf_monitor = process.env.LISTEN__ENABLE_PERF_MONITOR === 'true';
+// const infrastructureConfig: InfrastructureConfig = process.env.INFRASTRUCTURE ? JSON.parse(process.env.INFRASTRUCTURE) : {};
 
-export class ClusterService {
-    protected static instance: ClusterService;
+export class ClusterService<T extends typeof AppConfig> {
+    protected static instance: ClusterService<any>;
     private application: NestExpressApplication;
-    private readonly config: AppConfig;
+    private readonly config: InstanceType<T>;
     private logger: NestjsLoggerServiceAdapter;
     private server: net.Server;
     private clusterStarted: boolean = false;
     private AppModuleClass: ClassType;
     private eventLoopPerf: () => number;
+
+    constructor(configClass: T) {
+        this.config = globalConfigValidation(configClass, loadConfig());
+    }
 
     public handleMasterMessages(message: any, connection: net.Socket) {
         if (message !== 'sticky-session:connection') {
@@ -44,7 +48,7 @@ export class ClusterService {
                         this.clusterStarted = true;
 
                         this.bootstrap(message).then(() => {
-                            if (enable_perf_monitor) {
+                            if (this.config.listen.enable_perf_monitor) {
                                 this.eventLoopPerf = this.eventLoopLag(250);
                             }
                         });
@@ -84,9 +88,9 @@ export class ClusterService {
         return true;
     }
 
-    public get Config() {
-        return this.config;
-    }
+    // public get Config() {
+    //     return this.config;
+    // }
 
     public async start(appClass: ClassType) {
         this.AppModuleClass = appClass;
@@ -95,14 +99,12 @@ export class ClusterService {
     public async bootstrap(bootMessage: BootMessage) {
         await this.onBeforeNestInitialized();
 
-        const https = process.env['LISTEN__HTTPS'] === 'true';
-
         let httpsOptions = {};
 
-        if (https) {
+        if (this.config.listen.https) {
             httpsOptions = {
-                key: fs.readFileSync(process.env['LISTEN__KEY_PATH']!),
-                cert: fs.readFileSync(process.env['LISTEN__CERT_PATH']!),
+                key: fs.readFileSync(this.config.listen.key_path),
+                cert: fs.readFileSync(this.config.listen.cert_path),
                 requestCert: false,
                 rejectUnauthorized: false
             };
@@ -127,7 +129,7 @@ export class ClusterService {
         this.application.set('trust proxy', 'loopback');
 
         await this.application.listen(0, 'localhost', () => {
-            this.logger.verbose(`${https ? 'HTTPS' : 'HTTP'} server started in worker with id='${process.pid}'`, 'main');
+            this.logger.verbose(`${this.config.listen.https ? 'HTTPS' : 'HTTP'} server started in worker with id='${process.pid}'`, 'main');
         });
 
         this.server = this.application.getHttpServer();
@@ -141,23 +143,29 @@ export class ClusterService {
         catch (error) {
             this.logger.error(`Error during application startup! ${error.toString ? error.toString() : error.message}`, 'main');
         }
+
+        await this.onAfterNestInitialized();
     }
 
     protected async onBeforeNestInitialized() {
-        if (infrastructureConfig.opentelemetry.enabled) {
-            switch (infrastructureConfig.opentelemetry.tracer) {
+        if (this.config.infrastructure.opentelemetry.enabled) {
+            switch (this.config.infrastructure.opentelemetry.tracer) {
                 case TracerType.AzureMonitor: {
                     const azureMonitor = await import('../../infrastructure/providers/azure-monitor');
-                    await azureMonitor.default(infrastructureConfig).start();
+                    await azureMonitor.default(this.config.infrastructure).start();
                     break;
                 }
                 default: {
                     const otelSDK = await import('../../infrastructure/providers/opentelemetry');
-                    await otelSDK.default(infrastructureConfig).start();
+                    await otelSDK.default(this.config.infrastructure).start();
                     break;
                 }
             }
         }
+    }
+
+    protected async onAfterNestInitialized() {
+        // not implemented
     }
 
     private loopBlockedTime(fn: (ms: number) => void, options: { interval?: number, threshold?: number }) {

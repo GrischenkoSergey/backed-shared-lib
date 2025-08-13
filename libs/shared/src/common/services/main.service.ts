@@ -4,7 +4,7 @@ import * as net from 'node:net';
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import NestjsLoggerServiceAdapter from '../../logger/services/nestjs-logger.service';
-import { loadConfig, globalConfigValidation, TracerType, AppConfig, ListenConfig } from '../types/configs';
+import { loadConfig, globalConfigValidation, TracerType, AppConfig } from '../types/configs';
 import { ClassType } from '../types/common-types';
 import { WeakDI } from './app-ref.service';
 

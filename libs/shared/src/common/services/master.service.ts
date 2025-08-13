@@ -288,11 +288,11 @@ export default class MasterService {
     private spawn(i: number, code?: number, signal?: string) {
         this.activeWorkers[i] = {
             worker: cluster.fork({
-                LISTEN__HTTPS: this.config.listen.https,
-                LISTEN__CERT_PATH: this.config.listen.cert_path,
-                LISTEN__KEY_PATH: this.config.listen.key_path,
-                LISTEN__ENABLE_PERF_MONITOR: this.config.listen.enable_perf_monitor,
-                INFRASTRUCTURE: JSON.stringify(this.config.infrastructure),
+                // LISTEN__HTTPS: this.config.listen.https,
+                // LISTEN__CERT_PATH: this.config.listen.cert_path,
+                // LISTEN__KEY_PATH: this.config.listen.key_path,
+                // LISTEN__ENABLE_PERF_MONITOR: this.config.listen.enable_perf_monitor,
+                // INFRASTRUCTURE: JSON.stringify(this.config.infrastructure),
             }),
             code: code!,
             signal: signal!,
