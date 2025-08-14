@@ -8,7 +8,7 @@ import {
 import { BullModule } from '@nestjs/bullmq';
 import { ConfigurableModuleClass, MODULE_OPTIONS_TOKEN } from './infrastructure.module-definition';
 import { ConfigModule } from '../config/config.module';
-import { InfrastructureConfig, SettingsConfig, DatabasesConfig, TracerType } from '../common/types/configs';
+import { InfrastructureConfig, SettingsConfig, TracerType } from '../common/types/configs';
 import { MetricsServiceProvider } from './providers/metrics-service.provider';
 import { RedisServiceProvider } from './providers/redis.provider';
 import { SchedulerServiceProvider } from './providers/scheduler-service.provider';
@@ -29,19 +29,19 @@ import { StatsController } from './controllers/stats.controller';
 @Module({
   imports: [
     ConfigModule.forFeature([
-      InfrastructureConfig, SettingsConfig, DatabasesConfig
+      InfrastructureConfig, SettingsConfig
     ]),
     BullModule.forRootAsync({
       imports: [],
-      useFactory: async (config: DatabasesConfig) => {
+      useFactory: async (config: InfrastructureConfig) => {
         return {
           connection: {
-            host: config.redis.enabled ? config.redis.hostname : undefined,
-            port: config.redis.enabled ? config.redis.port : undefined,
+            host: config.databases.redis.enabled ? config.databases.redis.hostname : undefined,
+            port: config.databases.redis.enabled ? config.databases.redis.port : undefined,
           }
         };
       },
-      inject: [DatabasesConfig],
+      inject: [InfrastructureConfig],
     }),
   ],
   providers: [

@@ -21,7 +21,9 @@ import { RequireField } from '../common/require-field';
 export class RateLimiterAsserterImpl implements RateLimiterAsserter {
     constructor(
         @Inject(RATELIMITER_MODULE_PARAMS_TOKEN) private readonly defaultParams: RateLimiterModuleParams,
-    ) { }
+    ) {
+
+    }
 
     async assert(params: RequireField<RateLimiterParams, 'id'>): Promise<LimiterInfo> {
         let limiterInfo: LimiterInfo;

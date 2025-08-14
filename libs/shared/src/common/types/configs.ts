@@ -504,8 +504,7 @@ export class OpentelemetryOptions {
   readonly node_sdk: NodeSDKOptions;
 }
 
-@Config('Databases')
-export class DatabasesConfig {
+export class DatabasesOptions {
   @ValidateNested()
   @Type(() => RedisOptions)
   readonly redis: RedisOptions;
@@ -513,6 +512,10 @@ export class DatabasesConfig {
 
 @Config('Infrastructure')
 export class InfrastructureConfig {
+  @ValidateNested()
+  @Type(() => DatabasesOptions)
+  readonly databases: DatabasesOptions;
+
   @ValidateNested()
   @Type(() => OpentelemetryOptions)
   readonly opentelemetry: OpentelemetryOptions;

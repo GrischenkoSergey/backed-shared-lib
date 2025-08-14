@@ -5,7 +5,7 @@ export declare type ClassType = {
 
 export type BootMessage = {
     type: string,
-    plist: number[],
+    plist?: number[],
     startupTime: string,
     processId: number,
     code: number,

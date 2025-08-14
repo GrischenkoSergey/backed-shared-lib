@@ -7,11 +7,10 @@ import { Queue } from 'bullmq';
 import { InjectQueue } from '@nestjs/bullmq'
 import { AppEvents, WorkerStartedEvent } from '../../../common/types/events';
 import { IStatistics, ServerStatsInfo } from '../../features/stats.feature';
-import { SchedulerService } from '../schedulers/services/scheduler.service';
-import { SchedulerContext } from '../schedulers/common/context';
+import { SchedulerService, SchedulerContext, ScheduleTask } from '../schedulers';
 import { SCHEDULER_INTERVALS_MS, ServerMessageName } from '../../common/types';
 import { cpuUsage } from '../../../common/helpers/core-utils';
-import { SettingsConfig } from '../../../common/types/configs';
+import { SettingsConfig, InfrastructureConfig } from '../../../common/types/configs';
 import { JOB_STALLED_PERIOD } from '../../../common/constants';
 
 @Injectable()
@@ -31,13 +30,11 @@ export class StatsService extends SchedulerContext implements IStatistics {
 
     constructor(
         @Inject(SchedulerService) private readonly schedulerService: SchedulerService,
-        @Inject(SettingsConfig) private readonly config: SettingsConfig,
+        @Inject(SettingsConfig) private readonly settingsConfig: SettingsConfig,
+        @Inject(InfrastructureConfig) private readonly infrastructureConfig: InfrastructureConfig,
         @InjectQueue('stats') private readonly statsQueue: Queue
     ) {
         super(schedulerService);
-
-        this.config = config;
-        this.schedulerService = schedulerService
 
         this.STARTUP_TIME = new Date();
         this.RESTART_TIME = this.STARTUP_TIME;
@@ -54,8 +51,11 @@ export class StatsService extends SchedulerContext implements IStatistics {
                     this.cpuLoad = cpuUsage(this.cpuLoad);
                     return of(true);
                 }
-            },
-            {
+            }
+        ]);
+
+        if (this.infrastructureConfig.databases.redis.enabled) {
+            this.schedulerService.addTasks({
                 type: 'Interval',
                 name: 'intervals_sync_stats',
                 options: { ms: SCHEDULER_INTERVALS_MS.SERVER_STATS },
@@ -84,8 +84,16 @@ export class StatsService extends SchedulerContext implements IStatistics {
 
                     return job.id;
                 }
-            }
-        ]);
+            });
+        } else {
+            this.schedulerService.addTasks({
+                type: 'Interval',
+                name: 'intervals_sync_stats',
+                options: { ms: SCHEDULER_INTERVALS_MS.SERVER_STATS },
+                context: this,
+                fn: this.updateStats
+            });
+        }
     }
 
     @OnEvent(AppEvents.WorkerStarted, { async: true })
@@ -125,14 +133,14 @@ export class StatsService extends SchedulerContext implements IStatistics {
         }
 
         const data: ServerStatsInfo = {
-            serverUniqueId: this.config.project_unique_id,
+            serverUniqueId: this.settingsConfig.project_unique_id,
             timestamp: currentDate.toISOString(),
             date: currentDate.toLocaleDateString(),
             time: currentDate.toLocaleTimeString(),
             timezone: 'UTC' + ((timeOffset >= 0 ? '+' : '-') + this.divmod(timeOffset, 60)[0] + ':' + timeOffset % 60),
             startedAt: this.RESTART_TIME.toISOString(),
             restartStatus: this.RESTART_STATUS,
-            region: this.config.region,
+            region: this.settingsConfig.region,
             workerId: this.WORKER_ID,
             instanceId: this.UNIQUE_ID,
             cpuUsage: this.cpuLoad ? Math.round(this.cpuLoad.percent) : 0,

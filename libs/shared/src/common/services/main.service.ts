@@ -1,11 +1,13 @@
 import * as fs from 'node:fs';
 import * as process from 'node:process';
 import * as net from 'node:net';
+import { v4 as uuidv4 } from 'uuid';
 import { NestFactory } from '@nestjs/core';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import NestjsLoggerServiceAdapter from '../../logger/services/nestjs-logger.service';
 import { loadConfig, globalConfigValidation, TracerType, AppConfig } from '../types/configs';
-import { ClassType } from '../types/common-types';
+import { ClassType, AppEvents, WorkerStartedEvent } from '../types';
 import { WeakDI } from './app-ref.service';
 
 const APP_SHUTDOWN_INTERVAL = 10000; // 10 seconds
@@ -24,10 +26,14 @@ export class MainService<T extends typeof AppConfig> {
     protected static instance: MainService<any>;
     protected application: NestExpressApplication;
     protected readonly config: InstanceType<T>;
+    private readonly STARTUP_TIME: Date;
+    private readonly uniqueId: string;
     private logger: NestjsLoggerServiceAdapter;
     private server: net.Server;
 
     constructor(configClass: T) {
+        this.STARTUP_TIME = new Date();
+        this.uniqueId = uuidv4().split('-')[4] + '-' + process.pid;
         this.config = globalConfigValidation(configClass, loadConfig());
     }
 
@@ -68,6 +74,21 @@ export class MainService<T extends typeof AppConfig> {
         });
 
         this.server = this.application.getHttpServer();
+
+        try {
+            const events = this.application.get(EventEmitter2);
+            events.emit(AppEvents.WorkerStarted, new WorkerStartedEvent(this.application, {
+                type: 'bootstrap',
+                startupTime: this.STARTUP_TIME.toString(),
+                processId: process.pid,
+                uniqueId: this.uniqueId,
+                code: 0,
+                signal: ""
+            }));
+        }
+        catch (error) {
+            this.logger.error(`Error during application startup! ${error.toString ? error.toString() : error.message}`, 'main');
+        }
 
         await this.onAfterNestInitialized();
     }

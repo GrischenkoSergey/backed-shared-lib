@@ -28,7 +28,9 @@ export class RateLimiterGuard implements CanActivate {
         @Inject(RATELIMITER_MODULE_PARAMS_TOKEN) private readonly defaultParams: RateLimiterModuleParams,
         @Inject(RATE_LIMITER_ASSERTER_TOKEN) private readonly asserter: RateLimiterAsserter,
         private readonly reflector: Reflector,
-    ) { }
+    ) {
+
+    }
 
     async canActivate(context: ExecutionContext) {
         const paramsList = this.reflector.getAllAndOverride<

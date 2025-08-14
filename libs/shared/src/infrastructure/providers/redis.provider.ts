@@ -2,7 +2,7 @@ import { ModuleRef, LazyModuleLoader } from "@nestjs/core";
 import { Provider } from "@nestjs/common";
 import { MODULE_OPTIONS_TOKEN } from '../infrastructure.module-definition';
 import { InfrastructureFeatureOptions } from '../common/types';
-import { DatabasesConfig, SettingsConfig } from '../../common/types/configs';
+import { InfrastructureConfig, SettingsConfig } from '../../common/types/configs';
 import { REDIS_SERVICE } from '../features';
 
 export const REDIS_MODULE_REF = Symbol('REDIS_MODULE_REF');
@@ -13,29 +13,29 @@ export function RedisServiceProvider(): Provider[] {
             provide: REDIS_MODULE_REF,
             useFactory: async (
                 options: InfrastructureFeatureOptions,
-                config: DatabasesConfig,
+                config: InfrastructureConfig,
                 settings: SettingsConfig,
                 lazyModuleLoader: LazyModuleLoader
             ) => {
-                if (config.redis.enabled) {
+                if (config.databases.redis.enabled) {
                     const { RedisCoreModule } = await import('../components/redis/redis-core.module');
                     const redisOptions = [
                         {
                             name: 'default',
-                            host: config.redis.hostname,
-                            port: config.redis.port,
-                            db: config.redis.db,
-                            username: config.redis.auth.username ?? undefined,
-                            password: config.redis.auth.password ?? undefined,
+                            host: config.databases.redis.hostname,
+                            port: config.databases.redis.port,
+                            db: config.databases.redis.db,
+                            username: config.databases.redis.auth.username ?? undefined,
+                            password: config.databases.redis.auth.password ?? undefined,
                             keyPrefix: `${settings.solution_id}:`
                         },
                         {
                             name: 'ratelimiter',
-                            host: config.redis.hostname,
-                            port: config.redis.port,
-                            db: config.redis.db,
-                            username: config.redis.auth.username ?? undefined,
-                            password: config.redis.auth.password ?? undefined,
+                            host: config.databases.redis.hostname,
+                            port: config.databases.redis.port,
+                            db: config.databases.redis.db,
+                            username: config.databases.redis.auth.username ?? undefined,
+                            password: config.databases.redis.auth.password ?? undefined,
                             keyPrefix: `${settings.solution_id}-${settings.project_id}-${settings.project_unique_id}:`
                         }
                     ]
@@ -45,7 +45,7 @@ export function RedisServiceProvider(): Provider[] {
             },
             inject: [
                 MODULE_OPTIONS_TOKEN,
-                DatabasesConfig,
+                InfrastructureConfig,
                 SettingsConfig,
                 LazyModuleLoader
             ]
