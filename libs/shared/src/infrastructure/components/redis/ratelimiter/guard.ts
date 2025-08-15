@@ -8,10 +8,7 @@ import {
     InternalServerErrorException,
 } from '@nestjs/common';
 import { APP_GUARD, Reflector } from '@nestjs/core';
-import {
-    RATE_LIMITER_ASSERTER_TOKEN,
-    RateLimiterAsserter
-} from './asserter.interface';
+import { RATE_LIMITER_ASSERTER_TOKEN, RateLimiterAsserter } from './asserter.interface';
 import { RateLimiterError } from '../../../../common/errors/rate-limiter.error';
 import {
     RATELIMITER_DECORATOR_PARAMS_TOKEN,
@@ -29,7 +26,6 @@ export class RateLimiterGuard implements CanActivate {
         @Inject(RATE_LIMITER_ASSERTER_TOKEN) private readonly asserter: RateLimiterAsserter,
         private readonly reflector: Reflector,
     ) {
-
     }
 
     async canActivate(context: ExecutionContext) {
@@ -54,12 +50,12 @@ export class RateLimiterGuard implements CanActivate {
 
         if (!id) return;
 
-        const { max, duration, createErrorBody } = params;
+        const { points, duration, createErrorBody } = params;
 
         try {
             const limit = await this.asserter.assert({
                 id,
-                max,
+                points,
                 duration,
                 createErrorBody,
             });
@@ -67,10 +63,8 @@ export class RateLimiterGuard implements CanActivate {
             setRateLimitHeaders(response, limit);
         } catch (error) {
             if (error instanceof RateLimiterError) {
-                response.setHeader(
-                    'Retry-After',
-                    (error.limiterInfo.reset - Date.now() / 1000) | 0,
-                );
+                response.setHeader('Retry-After', (error.limiterInfo.msBeforeNext! / 1000) | 0);
+
                 setRateLimitHeaders(response, error.limiterInfo);
 
                 throw new TooManyRequestsError(JSON.parse(error.message));

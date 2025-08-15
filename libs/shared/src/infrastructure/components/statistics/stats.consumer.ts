@@ -8,13 +8,13 @@ import {
     InjectQueue
 } from '@nestjs/bullmq';
 import { Job, Queue } from 'bullmq';
-import { StatsService } from './stats.service';
+import { StatsBullService } from './stats-bull.service';
 
 @QueueEventsListener('stats')
 export class StatsEvents extends QueueEventsHost {
     constructor(
         @InjectQueue('stats') private readonly statsQueue: Queue,
-        @Inject(StatsService) private readonly statsService: StatsService
+        @Inject(StatsBullService) private readonly statsService: StatsBullService
     ) {
         super();
     }

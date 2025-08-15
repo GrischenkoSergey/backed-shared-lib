@@ -60,7 +60,7 @@ export class RedisService implements IRedisClient {
             });
     }
 
-    public getClient(name?: string): Redis {
+    public getClient(name?: string) {
         if (!name) {
             name = this.redisClient.defaultKey;
         }

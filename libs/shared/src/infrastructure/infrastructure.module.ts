@@ -5,50 +5,69 @@ import {
   OnModuleInit,
   Inject,
 } from '@nestjs/common';
-import { BullModule } from '@nestjs/bullmq';
 import { ConfigurableModuleClass, MODULE_OPTIONS_TOKEN } from './infrastructure.module-definition';
 import { ConfigModule } from '../config/config.module';
 import { InfrastructureConfig, SettingsConfig, TracerType } from '../common/types/configs';
-import { MetricsServiceProvider } from './providers/metrics-service.provider';
-import { RedisServiceProvider } from './providers/redis.provider';
-import { SchedulerServiceProvider } from './providers/scheduler-service.provider';
-import { StatsServiceProvider } from './providers/stats-service.provider';
+import {
+  MetricsServiceProvider,
+  RedisServiceProvider,
+  SchedulerServiceProvider,
+  StatsServiceProvider,
+  BullMQProvider
+} from './providers';
 import { InfrastructureFeatureOptions } from './common/types';
 import {
   METRICS_SERVICE,
   TRACE_SERVICE,
   SCHEDULER_SERVICE,
   STATS_SERVICE,
-  REDIS_SERVICE
+  REDIS_SERVICE,
+  IRedisClient,
+  ITracer,
+  IMetric
 } from './features';
-import { ITracer } from './features/tracer.feature';
-import { IMetric } from './features/metrics.feature';
 import { StatsController } from './controllers/stats.controller';
+import { RATELIMITER_MODULE_PARAMS_TOKEN, RateLimiterModuleParams } from './components/redis/ratelimiter/params';
+import { RateLimiterAsserterProvider } from './components/redis/ratelimiter/asserter.svc';
+import { RateLimiterGuardProvider } from './components/redis/ratelimiter/guard';
+import { getRequestIPAndPath } from '../common/helpers/core-utils';
 
 @Global()
 @Module({
   imports: [
     ConfigModule.forFeature([
-      InfrastructureConfig, SettingsConfig
-    ]),
-    BullModule.forRootAsync({
-      imports: [],
-      useFactory: async (config: InfrastructureConfig) => {
-        return {
-          connection: {
-            host: config.databases.redis.enabled ? config.databases.redis.hostname : undefined,
-            port: config.databases.redis.enabled ? config.databases.redis.port : undefined,
-          }
-        };
-      },
-      inject: [InfrastructureConfig],
-    }),
+      InfrastructureConfig,
+      SettingsConfig
+    ])
   ],
   providers: [
+    BullMQProvider(),
     ...MetricsServiceProvider(),
     ...RedisServiceProvider(),
     SchedulerServiceProvider(),
     StatsServiceProvider(),
+    {
+      provide: RATELIMITER_MODULE_PARAMS_TOKEN,
+      useFactory: (redisClient: IRedisClient): RateLimiterModuleParams => {
+        // Default rate limiter parameters
+        return {
+          storeClient: redisClient?.getClient('ratelimiter'),
+          points: 10,
+          duration: 10, // in seconds
+          getId: getRequestIPAndPath,
+          // uncomment for custom error body
+          // createErrorBody: (limit: RateLimiterResult) => ({
+          //   error: {
+          //     code: 'MY-RATE-LIMIT-ERROR-CODE',
+          //     params: limit,
+          //   },
+          // }),
+        };
+      },
+      inject: [REDIS_SERVICE]
+    },
+    RateLimiterGuardProvider,
+    RateLimiterAsserterProvider,
   ],
   controllers: [
     StatsController
@@ -72,7 +91,7 @@ export class InfrastructureModule extends ConfigurableModuleClass implements OnM
     @Inject(MODULE_OPTIONS_TOKEN) private readonly options: InfrastructureFeatureOptions,
     @Inject(InfrastructureConfig) private readonly config: InfrastructureConfig,
     @Inject(TRACE_SERVICE) private readonly traceService: ITracer,
-    @Inject(METRICS_SERVICE) private readonly metricsService: IMetric,
+    @Inject(METRICS_SERVICE) private readonly metricsService: IMetric
   ) {
     super();
   }

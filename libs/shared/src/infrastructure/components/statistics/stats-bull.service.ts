@@ -3,15 +3,18 @@ import { v4 as uuidv4 } from 'uuid';
 import { of } from 'rxjs';
 import { Injectable, Inject } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
+import { Queue } from 'bullmq';
+import { InjectQueue } from '@nestjs/bullmq'
 import { AppEvents, WorkerStartedEvent } from '../../../common/types/events';
 import { IStatistics, ServerStatsInfo } from '../../features/stats.feature';
-import { SchedulerService, SchedulerContext } from '../schedulers';
-import { SCHEDULER_INTERVALS_MS } from '../../common/types';
+import { SchedulerService, SchedulerContext, ScheduleTask } from '../schedulers';
+import { SCHEDULER_INTERVALS_MS, ServerMessageName } from '../../common/types';
 import { cpuUsage } from '../../../common/helpers/core-utils';
-import { SettingsConfig } from '../../../common/types/configs';
+import { SettingsConfig, InfrastructureConfig } from '../../../common/types/configs';
+import { JOB_STALLED_PERIOD } from '../../../common/constants';
 
 @Injectable()
-export class StatsService extends SchedulerContext implements IStatistics {
+export class StatsBullService extends SchedulerContext implements IStatistics {
     private cpuLoad;
     private nodeHeapUsedMin = 0;
     private nodeHeapUsedMax = 0;
@@ -27,7 +30,9 @@ export class StatsService extends SchedulerContext implements IStatistics {
 
     constructor(
         @Inject(SchedulerService) private readonly schedulerService: SchedulerService,
-        @Inject(SettingsConfig) private readonly settingsConfig: SettingsConfig
+        @Inject(SettingsConfig) private readonly settingsConfig: SettingsConfig,
+        @Inject(InfrastructureConfig) private readonly infrastructureConfig: InfrastructureConfig,
+        @InjectQueue('stats') private readonly statsQueue: Queue
     ) {
         super(schedulerService);
 
@@ -49,17 +54,46 @@ export class StatsService extends SchedulerContext implements IStatistics {
             }
         ]);
 
-        this.schedulerService.addTasks({
-            type: 'Interval',
-            name: 'intervals_sync_stats',
-            options: { ms: SCHEDULER_INTERVALS_MS.SERVER_STATS },
-            context: this,
-            fn: this.updateStats
-        });
-    }
+        if (this.infrastructureConfig.databases.redis.enabled) {
+            this.schedulerService.addTasks({
+                type: 'Interval',
+                name: 'intervals_sync_stats',
+                options: { ms: SCHEDULER_INTERVALS_MS.SERVER_STATS },
+                context: this,
+                fn: async () => {
+                    const stats = await this.getStats();
+                    const job = await this.statsQueue.add(
+                        'stats_' + process.pid,
+                        {
+                            messageType: ServerMessageName.SERVER_STATS,
+                            properties: {
+                                sentTime: new Date(),
+                                stats
+                            },
+                        },
+                        {
+                            backoff: {
+                                delay: 5000,
+                                type: 'fixed'
+                            },
+                            attempts: 10,
+                            removeOnComplete: { age: 60 },
+                            removeOnFail: true
+                        }
+                    );
 
-    public get startupTime() {
-        return this.STARTUP_TIME;
+                    return job.id;
+                }
+            });
+        } else {
+            this.schedulerService.addTasks({
+                type: 'Interval',
+                name: 'intervals_sync_stats',
+                options: { ms: SCHEDULER_INTERVALS_MS.SERVER_STATS },
+                context: this,
+                fn: this.updateStats
+            });
+        }
     }
 
     @OnEvent(AppEvents.WorkerStarted, { async: true })
@@ -77,6 +111,10 @@ export class StatsService extends SchedulerContext implements IStatistics {
 
             this.updateStats();
         }
+    }
+
+    public get startupTime() {
+        return this.STARTUP_TIME;
     }
 
     public async getStats(): Promise<ServerStatsInfo> {
@@ -126,7 +164,25 @@ export class StatsService extends SchedulerContext implements IStatistics {
     }
 
     public addStats(stats: ServerStatsInfo) {
-        // not implemented
+        if (stats.workerId) {
+            this.statsList.set(stats.workerId, stats);
+
+            const now = new Date();
+            const stalledEntries: string[] = [];
+
+            this.statsList.forEach((val, key) => {
+                const timestamp = new Date(val.timestamp);
+                const ellapsedTime = now.getTime() - timestamp.getTime();
+
+                if (ellapsedTime > JOB_STALLED_PERIOD) {
+                    stalledEntries.push(key);
+                }
+            });
+
+            stalledEntries.forEach(key => {
+                this.statsList.delete(key);
+            });
+        }
     }
 
     public getAllStats(): ServerStatsInfo[] {

@@ -47,7 +47,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
 
         if (_exception instanceof RateLimiterError) {
             setRateLimitHeaders(response, _exception.limiterInfo);
-            response.setHeader('Retry-After', (_exception.limiterInfo.reset - Date.now() / 1000) | 0);
+            response.setHeader('Retry-After', (_exception.limiterInfo.msBeforeNext! / 1000) | 0);
 
             _exception = new TooManyRequestsError(JSON.parse(_exception.message));
         }

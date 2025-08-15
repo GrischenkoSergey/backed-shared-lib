@@ -17,8 +17,8 @@ export class StatsController {
     @ApiOkResponse({ type: Object })
     @RateLimiter({
         getId: getRequestIPAndPath,
-        max: 5,
-        duration: 10000,
+        points: 5,
+        duration: 10
     })
     async getStats(): Promise<ServerStatsInfo[]> {
         if (!this.config.server_stats.enabled) {

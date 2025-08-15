@@ -19,10 +19,20 @@ export function StatsServiceProvider(): Provider {
                     throw new UnexpectedRuntimeError("Scheduler should be enabled for the 'Server Stats' feature");
                 }
 
+                if (infrastructure.databases.redis.enabled) {
+                    const { StatsModule } = await import('../components/statistics/stats.module');
+                    const { StatsBullService } = await import('../components/statistics/stats-bull.service');
+
+                    const moduleRef = await lazyModuleLoader.load(() => StatsModule.registerForBull());
+                    const stats = moduleRef.get(StatsBullService);
+
+                    return stats;
+                }
+
                 const { StatsModule } = await import('../components/statistics/stats.module');
                 const { StatsService } = await import('../components/statistics/stats.service');
 
-                const moduleRef = await lazyModuleLoader.load(() => StatsModule);
+                const moduleRef = await lazyModuleLoader.load(() => StatsModule.register());
                 const stats = moduleRef.get(StatsService);
 
                 return stats;
