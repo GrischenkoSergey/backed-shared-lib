@@ -44,7 +44,7 @@ export class ListenConfig {
   readonly hostname: string;
 
   @Number()
-  @Min(3000)
+  @Min(0)
   @Max(65535)
   readonly port: number;
 
@@ -541,6 +541,12 @@ export class SettingsConfig {
   @MinLength(3)
   @MaxLength(64)
   readonly product_name: string;
+
+  @String()
+  @IsOptional()
+  @MinLength(3)
+  @MaxLength(1024)
+  readonly description: string;
 
   @String()
   @MinLength(3)

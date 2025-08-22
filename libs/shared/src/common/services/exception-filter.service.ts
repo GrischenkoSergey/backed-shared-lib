@@ -1,35 +1,10 @@
 import * as _ from 'lodash';
 import { Request, Response } from 'express';
 import { Inject, Catch, ArgumentsHost, HttpStatus, ExceptionFilter, HttpException } from '@nestjs/common';
-import { ValidationError } from '../../config/common/validator';
 import Logger, { LoggerKey } from '../../logger/common/interfaces';
 import { RateLimiterError, TooManyRequestsError } from '../errors/';
+import { ProblemDetail, ExceptionResponse } from '../types';
 import { setRateLimitHeaders } from '../../infrastructure/components/redis/common/set-ratelimit-headers';
-
-export interface ExceptionResponse {
-    error?: string;
-    detail?: string;
-    message?: string | string[] | ValidationError[];
-}
-
-export interface IProblemDetail {
-    status: number;
-    instance?: string;
-    code?: string;
-    message: string;
-    detail?: string | object | ValidationError[] | Array<string | object>;
-    [key: string]: unknown;
-}
-
-export interface IErrorDetail {
-    message: string;
-    error?: {
-        type?: string;
-        instance?: string;
-        detail?: string;
-        code?: string;
-    };
-}
 
 export const PROBLEM_CONTENT_TYPE = 'application/problem+json';
 
@@ -79,7 +54,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
             }
         }
 
-        const error = {
+        const error: ProblemDetail = {
             status,
             instance,
             code: `${this.getCode(HttpStatus[status])}`,

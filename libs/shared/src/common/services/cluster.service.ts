@@ -4,6 +4,7 @@ import * as net from 'node:net';
 import { NestFactory } from '@nestjs/core';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { NestExpressApplication } from '@nestjs/platform-express';
+import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import NestjsLoggerServiceAdapter from '../../logger/services/nestjs-logger.service';
 import { TracerType, AppConfig, InfrastructureConfig, loadConfig, globalConfigValidation } from '../types/configs';
 import { AppEvents, WorkerStartedEvent } from '../types/events';
@@ -117,7 +118,25 @@ export class ClusterService<T extends typeof AppConfig> {
             httpsOptions
         });
 
+        this.application.enableCors({
+            origin(origin, callback): void {
+                callback(null, true);
+            },
+            methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+            credentials: true,
+            optionsSuccessStatus: 204
+        });
+
         WeakDI.setApp(this.application);
+
+        const config = new DocumentBuilder()
+            .setTitle(this.config.settings.product_name)
+            .setDescription(this.config.settings.description)
+            .setVersion('1.0')
+            .build();
+        const documentFactory = () => SwaggerModule.createDocument(this.application, config);
+
+        SwaggerModule.setup('api', this.application, documentFactory);
 
         this.logger = this.application.get(NestjsLoggerServiceAdapter);
 

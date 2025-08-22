@@ -8,7 +8,9 @@ export function setRateLimitHeaders(response: ServerResponse, limiterInfo: RateL
         return;
     }
 
-    response.setHeader('X-RateLimit-Limit', limiterInfo.points!);
-    response.setHeader('X-RateLimit-Remaining', limiterInfo.remainingPoints!);
-    response.setHeader('X-RateLimit-Reset', '' + (new Date(Date.now() + limiterInfo.msBeforeNext!)).toLocaleString());
+    if (limiterInfo.points) {
+        response.setHeader('X-RateLimit-Limit', limiterInfo.points);
+        response.setHeader('X-RateLimit-Remaining', limiterInfo.remainingPoints!);
+        response.setHeader('X-RateLimit-Reset', '' + (new Date(Date.now() + limiterInfo.msBeforeNext!)).toLocaleString());
+    }
 }

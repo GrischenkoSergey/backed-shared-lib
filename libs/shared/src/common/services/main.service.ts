@@ -5,6 +5,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { NestFactory } from '@nestjs/core';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { NestExpressApplication } from '@nestjs/platform-express';
+import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import NestjsLoggerServiceAdapter from '../../logger/services/nestjs-logger.service';
 import { loadConfig, globalConfigValidation, TracerType, AppConfig } from '../types/configs';
 import { ClassType, AppEvents, WorkerStartedEvent } from '../types';
@@ -49,16 +50,36 @@ export class MainService<T extends typeof AppConfig> {
                 requestCert: false,
                 rejectUnauthorized: false
             };
+
+            this.application = await NestFactory.create<NestExpressApplication>(appClass, {
+                bufferLogs: true,
+                // https://medium.com/better-programming/nestjs-the-good-the-bad-and-the-ugly-d51aea04f267
+                abortOnError: false,
+                httpsOptions,
+            });
+        } else {
+            this.application = await NestFactory.create<NestExpressApplication>(appClass, {
+                bufferLogs: true,
+                abortOnError: false
+            });
         }
 
-        this.application = await NestFactory.create<NestExpressApplication>(appClass, {
-            bufferLogs: true,
-            // https://medium.com/better-programming/nestjs-the-good-the-bad-and-the-ugly-d51aea04f267
-            abortOnError: false,
-            httpsOptions,
+        this.application.enableCors({
+            origin: '*',
+            methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+            credentials: true,
         });
 
         WeakDI.setApp(this.application);
+
+        const config = new DocumentBuilder()
+            .setTitle(this.config.settings.product_name)
+            .setDescription(this.config.settings.description)
+            .setVersion('1.0')
+            .build();
+        const documentFactory = () => SwaggerModule.createDocument(this.application, config);
+
+        SwaggerModule.setup('api', this.application, documentFactory);
 
         this.logger = this.application.get(NestjsLoggerServiceAdapter);
 
@@ -68,6 +89,8 @@ export class MainService<T extends typeof AppConfig> {
             next();
         });
         this.application.set('trust proxy', 'loopback');
+
+        await this.onAfterNestInitialized();
 
         await this.application.listen(this.config.listen.port, this.config.listen.hostname, () => {
             this.logger.verbose(`${this.config.listen.https ? 'HTTPS' : 'HTTP'} server started'`, 'main');
@@ -89,8 +112,6 @@ export class MainService<T extends typeof AppConfig> {
         catch (error) {
             this.logger.error(`Error during application startup! ${error.toString ? error.toString() : error.message}`, 'main');
         }
-
-        await this.onAfterNestInitialized();
     }
 
     protected async onBeforeNestInitialized() {
