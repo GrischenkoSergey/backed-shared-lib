@@ -1,6 +1,6 @@
-import { Number, String } from '../../config/common/transformation-types';
+import { String } from '../../config/common/transformation-types';
 import { plainToClass } from '../../config/common/transformer';
-import { MinLength, Min, Max, IsEnum, validateSync, ValidationError } from '../../config/common/validator';
+import { MinLength, IsEnum, validateSync, ValidationError } from '../../config/common/validator';
 
 export enum Environment {
   Local = "local",
